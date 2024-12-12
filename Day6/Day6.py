@@ -7,7 +7,7 @@ DIR_MAPPINGS = {
     "EAST": [0, 1, 'E']
 }
 
-def read_data_from_file(filename):
+def read_data_from_file(filename="Advent_Day6_Input.txt"):
     with open(filename, 'r') as f:
         lines = f.readlines()
     data = [list(line.strip()) for line in lines]
@@ -18,48 +18,52 @@ def read_data_from_file(filename):
             break
     return data, starting_pos
 
-def navigate_data(data, starting_pos):
+def part_one(data, starting_pos):
     visited = defaultdict(set)
+    add_to_map(visited, ','.join(map(str, starting_pos)), 'N')
+
+    is_out_of_bounds = False
     current_pos = starting_pos
     direction = DIR_MAPPINGS["NORTH"]
-    path = [(current_pos[0], current_pos[1], direction[2])]
 
-    while True:
+    while not is_out_of_bounds:
         next_row = current_pos[0] + direction[0]
         next_col = current_pos[1] + direction[1]
         look_ahead = get_space(data, next_row, next_col)
 
         if look_ahead == 'OOB':
-            break
+            is_out_of_bounds = True
         elif look_ahead == '#':
             direction = determine_new_direction(direction)
         else:
-            key = (next_row, next_col)
-            if direction[2] in visited[key]:
-                return 'LOOP', path
-            visited[key].add(direction[2])
+            key = ','.join(map(str, [next_row, next_col]))
+            if direction[2] in visited.get(key, set()):
+                return 'LOOP'
+
             current_pos = [next_row, next_col]
-            path.append((current_pos[0], current_pos[1], direction[2]))
+            add_to_map(visited, key, direction[2])
 
-    return 'NO_LOOP', path
+    return visited
 
-def part_one(data, starting_pos):
-    result, path = navigate_data(data, starting_pos)
-    return len(path) if result == 'NO_LOOP' else 'LOOP'
+def part_2_pls_work(data, starting_pos):
+    blocks = part_one(data, starting_pos)
+    blocks.pop(','.join(map(str, starting_pos)), None)
 
-def part_two(data, starting_pos):
-    _, path = navigate_data(data, starting_pos)
     loops_count = 0
 
-    for i in range(1, len(path)):
-        row, col, _ = path[i]
+    for key, _ in blocks.items():
+        row, col = map(int, key.split(','))
         data[row][col] = '#'
-        result, _ = navigate_data(data, starting_pos)
-        if result == 'LOOP':
+
+        if part_one(data, starting_pos) == 'LOOP':
             loops_count += 1
+
         data[row][col] = '.'
 
     print(loops_count)
+
+def add_to_map(map, key, value):
+    map[key].add(value)
 
 def determine_new_direction(direction):
     if direction == DIR_MAPPINGS["NORTH"]:
@@ -77,6 +81,6 @@ def get_space(data, row, col):
     return data[row][col]
 
 if __name__ == "__main__":
-    data, starting_pos = read_data_from_file("Advent_Day6_Input.txt")
-    print(part_one(data, starting_pos))
-    part_two(data, starting_pos)
+    data, starting_pos = read_data_from_file()
+    print(len(part_one(data, starting_pos)))
+    print(part_2_pls_work(data, starting_pos))
