@@ -1,93 +1,82 @@
 from collections import defaultdict
 
+DIR_MAPPINGS = {
+    "NORTH": [-1, 0, 'N'],
+    "SOUTH": [1, 0, 'S'],
+    "WEST": [0, -1, 'W'],
+    "EAST": [0, 1, 'E']
+}
+
 def read_data_from_file(filename):
-    with open(filename) as f:
-        out = f.read().splitlines()
-        output = []
-        for line in out:
-            output.append(list(line))
-    return output
+    with open(filename, 'r') as f:
+        lines = f.readlines()
+    data = [list(line.strip()) for line in lines]
+    starting_pos = None
+    for i, row in enumerate(data):
+        if '^' in row:
+            starting_pos = [i, row.index('^')]
+            break
+    return data, starting_pos
 
-def get_start(data):
-    for i in range(len(data)):
-        line = data[i]
-        if line.count('^'):
-            for j in range(len(line)):
-                if line[j] == '^':
-                    return i, j
+def navigate_data(data, starting_pos):
+    visited = defaultdict(set)
+    current_pos = starting_pos
+    direction = DIR_MAPPINGS["NORTH"]
+    path = [(current_pos[0], current_pos[1], direction[2])]
 
-def check_ahead(data, row, col):
-    if data[row][col] == '.' or data[row][col] == 'X':
-        return True
-    return False
+    while True:
+        next_row = current_pos[0] + direction[0]
+        next_col = current_pos[1] + direction[1]
+        look_ahead = get_space(data, next_row, next_col)
 
-def traverse(data, row, col):
-    valid_steps = 0
-    loop_cnt = 0
-    visited = set()
+        if look_ahead == 'OOB':
+            break
+        elif look_ahead == '#':
+            direction = determine_new_direction(direction)
+        else:
+            key = (next_row, next_col)
+            if direction[2] in visited[key]:
+                return 'LOOP', path
+            visited[key].add(direction[2])
+            current_pos = [next_row, next_col]
+            path.append((current_pos[0], current_pos[1], direction[2]))
 
-    finished = False
-    while len(data) > row > 0 and len(data[0]) > col > 0:
-        if data[row][col] == '^':
-            if check_ahead(data, row - 1, col):
-                if data[row-1][col] != 'X':
-                    valid_steps+=1
-                if (row,col,'^') in visited:
-                    loop_cnt+=1
-                visited.add((row,col,'^'))
-                data[row][col] = 'X'
-                row -= 1
-                data[row][col] = '^'
-                if (row,col,'^') in visited:
-                    loop_cnt+=1
-                visited.add((row,col,'^'))
-            else:
-                data[row][col] = '>'
-        elif data[row][col] == '>':
-            if check_ahead(data, row, col + 1):
-                if data[row][col+1] != 'X':
-                    valid_steps+=1
-                if (row,col,'>') in visited:
-                    loop_cnt+=1
-                    break
-                visited.add((row,col,'>'))
-                data[row][col] = 'X'
-                col += 1
-                data[row][col] = '>'
-            else:
-                data[row][col] = 'v'
-        elif data[row][col] == '<':
-            if check_ahead(data, row , col - 1):
-                if data[row][col-1] != 'X':
-                    valid_steps+=1
-                if (row,col,'<') in visited:
-                    loop_cnt+=1
-                visited.add((row,col,'<'))
-                data[row][col] = 'X'
-                col -= 1
-                data[row][col] = '<'
-            else:
-                data[row][col] = '^'
-        elif data[row][col] == 'v':
-            if check_ahead(data, row + 1, col):
-                if data[row+1][col] != 'X':
-                    valid_steps+=1
-                if (row,col,'v') in visited:
-                    loop_cnt+=1
-                visited.add((row,col,'v'))
-                data[row][col] = 'X'
-                row += 1
-                data[row][col] = 'v'
-            else:
-                data[row][col] = '<'
+    return 'NO_LOOP', path
 
-    data[row][col] = 'X'
-    valid_steps+=1
-    return valid_steps, loop_cnt
+def part_one(data, starting_pos):
+    result, path = navigate_data(data, starting_pos)
+    return len(path) if result == 'NO_LOOP' else 'LOOP'
 
-if __name__ == '__main__':
-    data = read_data_from_file('Advent_Day6_Input.txt')
-    #print(data)
-    start_row, start_col = get_start(data)
-    print(traverse(data, start_row, start_col))
+def part_two(data, starting_pos):
+    _, path = navigate_data(data, starting_pos)
+    loops_count = 0
 
+    for i in range(1, len(path)):
+        row, col, _ = path[i]
+        data[row][col] = '#'
+        result, _ = navigate_data(data, starting_pos)
+        if result == 'LOOP':
+            loops_count += 1
+        data[row][col] = '.'
+
+    print(loops_count)
+
+def determine_new_direction(direction):
+    if direction == DIR_MAPPINGS["NORTH"]:
+        return DIR_MAPPINGS["EAST"]
+    elif direction == DIR_MAPPINGS["EAST"]:
+        return DIR_MAPPINGS["SOUTH"]
+    elif direction == DIR_MAPPINGS["SOUTH"]:
+        return DIR_MAPPINGS["WEST"]
+    elif direction == DIR_MAPPINGS["WEST"]:
+        return DIR_MAPPINGS["NORTH"]
+
+def get_space(data, row, col):
+    if row < 0 or col < 0 or row >= len(data) or col >= len(data[0]):
+        return 'OOB'
+    return data[row][col]
+
+if __name__ == "__main__":
+    data, starting_pos = read_data_from_file("Advent_Day6_Input.txt")
+    print(part_one(data, starting_pos))
+    part_two(data, starting_pos)
